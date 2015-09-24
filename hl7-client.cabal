@@ -21,9 +21,37 @@ executable hl7-client
   -- other-modules:       
   other-extensions:    OverloadedStrings
   build-depends:       base >=4.8 && <4.9
-                     , http-streams > 0.8   && < 1.0
-                     , io-streams   > 1.3   && < 2.0
                      , bytestring   > 0.10  && < 1.0
-                     
+                     , async               >  2.0    && <  2.1
+                     , network-simple      >  0.4    && <  1.0
+                     , word8               >  0.1    && <  1.0
+                     , pretty-hex          >= 1.0    && <  2.0
+                     , time                >  1.5    && <  1.6
+                     , old-locale          >  1.0    && <  2.0
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+executable all-caps-sample-client
+  main-is:             AllCapsClient.hs
+  -- other-modules:       
+  other-extensions:    OverloadedStrings
+  build-depends:       base >=4.8 && <4.9
+                     , bytestring   > 0.10  && < 1.0
+                     , conduit-combinators >  1.0    && <  2.0
+                     , conduit-extra       >  1.1    && <  2.0
+                     , async               >  2.0    && <  2.1
+                     , word8               >  0.1    && <  1.0                     
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+executable all-caps-sample-server
+  main-is:             AllCapsServer.hs
+  other-extensions:    OverloadedStrings
+  build-depends:       base                >= 4.8    && <  4.9
+                     , conduit-combinators >  1.0    && <  2.0
+                     , conduit-extra       >  1.1    && <  2.0
+                     , async               >  2.0    && <  2.1
+                     , word8               >  0.1    && <  1.0
+                     , utf8-string         >  1.0    && <  2.0
   hs-source-dirs:      src
   default-language:    Haskell2010
