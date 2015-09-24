@@ -39,6 +39,9 @@ latin1 :: CharacterSet
 latin1 = "8895/1"
 ascii :: CharacterSet
 ascii = "ASCII"
+defaultHL7InFolder :: String
+defaultHL7InFolder = "/Users/dvekeman/Documents/Middleware/_hl7/IN/UTF8"
+
 
 type Version = String
 v251 = "2.5.1" :: Version
@@ -60,22 +63,29 @@ mkMSH t = MSH { dateTime = t
               , charset  = utf8
               }
           
+mkSPM specimenId = SPM { specimenId = specimenId }
+mkORC orderId orderTime = ORC { orderTime = orderTime
+                              , orderId   = orderId
+                              }
+mkOBR universalServiceId = OBR { universalServiceId = universalServiceId }
+
+fmtORCAndOBR orderId orderTime universalServiceIds =
+  let formattedOBRs = map (fmtOBR . mkOBR) universalServiceIds
+      orcs = map (\_ -> mkORC orderId orderTime) universalServiceIds
+      formattedORCs = map fmtORC orcs
+      formattedORCAndOBRZipped = zip formattedORCs formattedOBRs
+      formattedORCAndOBRs = map (\(fst,snd) -> fst <> cr <> snd) formattedORCAndOBRZipped
+  in  foldr (\formattedValue acc -> formattedValue <> cr <> acc) (B.byteString B.empty) formattedORCAndOBRs
+  
 fmtMSH :: MSH -> B.Builder
 fmtMSH msh = B.stringUtf8 $ "MSH|^~\\&|||||" ++ (hl7Time $ dateTime msh) ++ "||OML^O33^OML_O33|603301|P|"++ (version msh) ++ "||||||" ++ (charset msh)
 
-mkSPM specimenId = SPM { specimenId = specimenId
-                       }
 fmtSPM :: SPM -> B.Builder
 fmtSPM spm = B.stringUtf8 $ "SPM||"++ (specimenId spm) ++"||FFPE"
 
-mkORC orderId orderTime = ORC { orderId = orderId
-                              , orderTime = orderTime
-                              }
 fmtORC :: ORC -> B.Builder
 fmtORC orc = B.stringUtf8 $ "ORC|NW|"++ (orderId orc) ++"|||||||" ++ (hl7Time $ orderTime orc)
 
-mkOBR universalServiceId = OBR { universalServiceId = universalServiceId
-                               }
 fmtOBR :: OBR -> B.Builder
 fmtOBR obr = B.stringUtf8 $ "OBR||||" ++ (universalServiceId obr)
 
@@ -107,28 +117,40 @@ middleware = Settings "127.0.0.1" 2575
 main :: IO ()
 main =
   connect (hostname middleware) (show $ port middleware)  $ \(connectionSocket, remoteAddr) -> do
-    now <- DT.getZonedTime
-    putStrLn "Connecting ..."
-    putStrLn "Start Id (Order / Sample)"
-    startId  <- readI 1
-    putStrLn "Order ID: (default )"
-    orderId  <- readS ("O" ++ show startId)
-    putStrLn "Sample ID: (default )"
-    sampleId  <- readS ("S" ++ show startId)
-    putStrLn "Universal Service Id: (default 101X)"
-    univSvcId  <- readS "101X"
-    putStrLn "Order Time (default now, format yyyymmddHHMMSS, eg 20150923115959)"
-    orderTime <- readT now
-    putStrLn $ "Order ID: " ++ (show orderId)
-    putStrLn $ "Sample ID: " ++ (show sampleId)
-    let msh = fmtMSH $ mkMSH now
-        spm = fmtSPM $ mkSPM sampleId
-        orc = fmtORC $ mkORC orderId orderTime
-        obr = fmtOBR $ mkOBR univSvcId
-    putStrLn $ "Connection established to " ++ show remoteAddr
-    let requestData = msh <> cr <> spm <> cr <> orc <> cr <> obr
-    let request     = sb <> requestData <> eb <> cr
+    putStrLn "From file? (default: no)"
+    useFile <- readS ""
+    case useFile of
+     "" -> fromScratch connectionSocket remoteAddr
+     otherwise -> fromFile connectionSocket remoteAddr
+
+fromScratch :: Socket -> SockAddr -> IO ()
+fromScratch connectionSocket remoteAddr = do
+  now <- DT.getZonedTime
+  putStrLn "Start Id (Order / Sample)"
+  startId  <- readI 1
+  putStrLn "Universal Service Id(s): eg 101X,501X (default 101X)"
+  univSvcIds  <- readS "101X"
+  let univSvcIdList = wordsWhen (== ',') univSvcIds
+  putStrLn "Order Time: format yyyymmddHHMMSS, eg 20150923115959 (default now)"
+  orderTime <- readT now
+  let msh = fmtMSH $ mkMSH now
+      spm = fmtSPM $ mkSPM ("S" ++ show startId)
+      orcAndObr = fmtORCAndOBR ("O" ++ show startId) orderTime univSvcIdList
+        
+  putStrLn $ "Connection established to " ++ show remoteAddr
+  let requestData = msh <> cr <> spm <> cr <> orcAndObr
+  sendRequest requestData connectionSocket remoteAddr 
+
+fromFile :: Socket -> SockAddr -> IO ()
+fromFile connectionSocket remoteAddr = do
+  putStrLn $ "File name (default path: " ++ defaultHL7InFolder ++ ")"
+  fname <- readS "Blah.txt"
+  requestData <- readFile (defaultHL7InFolder ++ "/" ++ fname)
+  sendRequest (B.stringUtf8 requestData) connectionSocket remoteAddr
+
+sendRequest requestData connectionSocket remoteAddr = do
     putStrLn $ "Sending " ++ (show $ toBS requestData)
+    let request     = sb <> requestData <> eb <> cr
     putStrLn $ "Raw hex data \n" ++ (prettyHex $ toBS request)
     send connectionSocket $ toBS $ request
     putStrLn "... waiting for response ..."
@@ -141,22 +163,42 @@ main =
       -- Now you may use connectionSocket as you please within this scope,
       -- possibly using recv and send to interact with the remote end.
 
+
+
 readS :: String -> IO String
 readS defaultValue = do
   value <- getLine
-  return $ foo defaultValue value
+  putStrLn $ "Read: " ++ show value
+  let result = sfoo defaultValue value
+  putStrLn $ "Read result: " ++ show result
+  return result
 
 readI :: Int -> IO Int
 readI defaultValue = do
   value <- getLine
   return $ foo defaultValue value
 
+readB :: Bool -> IO Bool
+readB defaultValue = do
+  value <- getLine
+  return $ foo defaultValue value
+
 readT :: DT.ZonedTime -> IO DT.ZonedTime
 readT defaultValue = do
   value <- getLine
-  let valueT = DT.parseTimeOrError True DT.defaultTimeLocale defaultTimeFormat value :: DT.ZonedTime
-  return valueT
+  putStrLn $ "Value is: '" ++ value ++ "'"
+  case value of
+   "" -> do
+     putStrLn "empty"
+     return defaultValue
+   otherwise -> do
+     putStrLn "Not empty"
+     return $ DT.parseTimeOrError True DT.defaultTimeLocale defaultTimeFormat value
 
+sfoo :: String -> String -> String
+sfoo defaultValue "" = defaultValue
+sfoo _  s            = s
+                    
 foo :: Read a => a -> String -> a
 foo defaultValue "" = defaultValue
 foo _  s            = read s
@@ -169,6 +211,12 @@ prettyPrint = concat . map (flip showHex "") . B.unpack
 
 prettyPrintHL7 :: B.ByteString -> B.ByteString
 prettyPrintHL7 = B.takeWhile (\w -> w /= 0x1C) .  B.drop 1
+
+wordsWhen     :: (Char -> Bool) -> String -> [String]
+wordsWhen p s =  case dropWhile p s of
+                  "" -> []
+                  s' -> w : wordsWhen p s''
+                    where (w, s'') = break p s'
 
 infixr 4 <>
 (<>) :: Monoid m => m -> m -> m
