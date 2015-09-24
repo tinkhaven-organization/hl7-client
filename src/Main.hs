@@ -1,3 +1,14 @@
+{--
+Important
+[] Read defaults from template file (JSON)
+[] Read data from input file (JSON)
+[] Receive more than 1024 bytes
+[] Split up in submodules
+
+Nice to have
+[] GUI
+[] |- Data input: auto-generate a form using 
+ --}
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Network.Simple.TCP
@@ -115,40 +126,44 @@ middleware :: Settings
 middleware = Settings "127.0.0.1" 2575
 
 main :: IO ()
-main =
-  connect (hostname middleware) (show $ port middleware)  $ \(connectionSocket, remoteAddr) -> do
-    putStrLn "From file? (default: no)"
-    useFile <- readS ""
-    case useFile of
-     "" -> fromScratch connectionSocket remoteAddr
-     otherwise -> fromFile connectionSocket remoteAddr
+main = do
+  putStrLn "From file? (default: no)"
+  useFile <- readS ""
+  case useFile of
+   "" -> fromScratch
+   otherwise -> fromFile
 
-fromScratch :: Socket -> SockAddr -> IO ()
-fromScratch connectionSocket remoteAddr = do
+fromScratch ::  IO ()
+fromScratch = do
   now <- DT.getZonedTime
   putStrLn "Start Id (Order / Sample)"
   startId  <- readI 1
+  putStrLn "Number of samples (default 1): "
+  nrOfRequests  <- readI 1
   putStrLn "Universal Service Id(s): eg 101X,501X (default 101X)"
   univSvcIds  <- readS "101X"
   let univSvcIdList = wordsWhen (== ',') univSvcIds
   putStrLn "Order Time: format yyyymmddHHMMSS, eg 20150923115959 (default now)"
   orderTime <- readT now
+  sequence_ $ map (fromScratchRequest univSvcIdList orderTime) (take nrOfRequests [startId..])
+
+fromScratchRequest univSvcIdList orderTime startId = do
+  now <- DT.getZonedTime
   let msh = fmtMSH $ mkMSH now
       spm = fmtSPM $ mkSPM ("S" ++ show startId)
       orcAndObr = fmtORCAndOBR ("O" ++ show startId) orderTime univSvcIdList
-        
-  putStrLn $ "Connection established to " ++ show remoteAddr
-  let requestData = msh <> cr <> spm <> cr <> orcAndObr
-  sendRequest requestData connectionSocket remoteAddr 
+      requestData = msh <> cr <> spm <> cr <> orcAndObr
+  sendRequest requestData
 
-fromFile :: Socket -> SockAddr -> IO ()
-fromFile connectionSocket remoteAddr = do
+fromFile :: IO ()
+fromFile = do
   putStrLn $ "File name (default path: " ++ defaultHL7InFolder ++ ")"
   fname <- readS "Blah.txt"
   requestData <- readFile (defaultHL7InFolder ++ "/" ++ fname)
-  sendRequest (B.stringUtf8 requestData) connectionSocket remoteAddr
+  sendRequest (B.stringUtf8 requestData)
 
-sendRequest requestData connectionSocket remoteAddr = do
+sendRequest requestData = do
+  connect (hostname middleware) (show $ port middleware)  $ \(connectionSocket, remoteAddr) -> do
     putStrLn $ "Sending " ++ (show $ toBS requestData)
     let request     = sb <> requestData <> eb <> cr
     putStrLn $ "Raw hex data \n" ++ (prettyHex $ toBS request)
@@ -160,10 +175,6 @@ sendRequest requestData connectionSocket remoteAddr = do
                              putStrLn $ "Raw hex response data \n" ++ (prettyHex $ responseData)
                              putStrLn $ show $ prettyPrintHL7 responseData
      Nothing  -> putStrLn "|- Nothing received back -|"
-      -- Now you may use connectionSocket as you please within this scope,
-      -- possibly using recv and send to interact with the remote end.
-
-
 
 readS :: String -> IO String
 readS defaultValue = do
