@@ -136,12 +136,12 @@ main = do
 fromScratch ::  IO ()
 fromScratch = do
   now <- DT.getZonedTime
-  putStrLn "Start Id (Order / Sample)"
-  startId  <- readI 1
-  putStrLn "Number of samples (default 1): "
-  nrOfRequests  <- readI 1
-  putStrLn "Universal Service Id(s): eg 101X,501X (default 101X)"
-  univSvcIds  <- readS "101X"
+  putStrLn "Start Id for Order & Sample (default 0)"
+  startId  <- readI 0
+  putStrLn "Number of samples (default 10): "
+  nrOfRequests  <- readI 10
+  putStrLn "Universal Service Id(s): eg 101X,501X (default 101X,501X)"
+  univSvcIds  <- readS "101X,501X"
   let univSvcIdList = wordsWhen (== ',') univSvcIds
   putStrLn "Order Time: format yyyymmddHHMMSS, eg 20150923115959 (default now)"
   orderTime <- readT now
