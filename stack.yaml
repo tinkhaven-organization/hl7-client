@@ -1,0 +1,91 @@
+# For more information, see: https://github.com/commercialhaskell/stack/blob/release/doc/yaml_configuration.md
+
+# Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
+resolver: ghc-7.10.2
+
+# Local packages, usually specified by relative directory name
+packages:
+- '.'
+
+# Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
+extra-deps:
+- StateVar-1.1.0.3
+- adjunctions-4.3
+- async-2.0.2
+- attoparsec-0.13.0.1
+- base-orphans-0.5.3
+- base16-bytestring-0.1.1.6
+- base64-bytestring-1.0.0.1
+- bifunctors-5.2.1
+- blaze-builder-0.4.0.1
+- chunked-data-0.2.0
+- comonad-5
+- conduit-1.2.6.2
+- conduit-combinators-1.0.3.1
+- conduit-extra-1.1.10.1
+- contravariant-1.4
+- data-default-class-0.0.1
+- distributive-0.5.0.2
+- dlist-0.7.1.2
+- dlist-instances-0.1
+- exceptions-0.8.2.1
+- free-4.12.4
+- hashable-1.2.4.0
+- kan-extensions-5.0.1
+- keys-3.11
+- lifted-base-0.2.3.6
+- mmorph-1.0.6
+- monad-control-1.0.0.5
+- mono-traversable-0.10.1.1
+- mtl-2.2.1
+- mwc-random-0.13.4.0
+- network-2.6.2.1
+- network-simple-0.4.0.4
+- old-locale-1.0.0.7
+- pointed-5
+- prelude-extras-0.4.0.3
+- pretty-hex-1.0
+- primitive-0.6.1.0
+- profunctors-5.2
+- random-1.1
+- resourcet-1.1.7.2
+- scientific-0.3.4.4
+- semigroupoids-5.0.1
+- semigroups-0.18.1
+- split-0.2.3
+- stm-2.4.4.1
+- streaming-commons-0.1.15.1
+- tagged-0.8.3
+- text-1.2.2.0
+- transformers-base-0.4.4
+- transformers-compat-0.5.1.4
+- unix-compat-0.4.1.4
+- unordered-containers-0.2.7.0
+- utf8-string-1.0.1.1
+- vector-0.11.0.0
+- vector-algorithms-0.7.0.1
+- vector-instances-3.3.1
+- void-0.7.1
+- word8-0.1.2
+- zlib-0.6.1.1
+
+# Override default flag values for local packages and extra-deps
+flags: {}
+
+# Extra package databases containing global packages
+extra-package-dbs: []
+
+# Control whether we use the GHC we find on the path
+# system-ghc: true
+
+# Require a specific version of stack, using version ranges
+# require-stack-version: -any # Default
+# require-stack-version: >= 0.1.4.0
+
+# Override the architecture used by stack, especially useful on Windows
+# arch: i386
+# arch: x86_64
+
+# Extra directories used by stack for building
+# extra-include-dirs: [/path/to/dir]
+# extra-lib-dirs: [/path/to/dir]
